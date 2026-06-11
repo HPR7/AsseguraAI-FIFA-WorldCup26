@@ -2155,3 +2155,139 @@ input:focus + .slider {
 input:checked + .slider:before {
   transform: translateX(18px);
 }
+
+/* ==========================================================================
+   Advanced Responsive & Device Orientation Adjustments (Mobile, Tablet, iPad)
+   ========================================================================== */
+
+/* Enable smooth momentum scrolling on iOS touch devices */
+.calendar-timeline,
+.bracket-outer,
+.standings-table-container,
+.squad-selection-grid,
+.match-center-wrapper {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Header layout optimizations on smaller mobile screens */
+@media (max-width: 600px) {
+  .header-controls {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+  }
+  
+  .lang-switch-container {
+    width: 100%;
+    justify-content: center;
+    order: -1; /* Place language switcher at top of controls */
+  }
+
+  .header-controls .control-group {
+    flex: 1;
+    min-width: 130px;
+  }
+
+  .btn-refresh {
+    flex: 1;
+    min-width: 130px;
+    justify-content: center;
+  }
+}
+
+/* Date Timeline and Tabs optimization for phones */
+@media (max-width: 480px) {
+  /* Hide scroll buttons to give 100% space to touch-scrolling date cards */
+  .btn-nav-timeline {
+    display: none !important;
+  }
+  
+  .calendar-timeline-container {
+    gap: 0;
+  }
+
+  /* Hide tab icons to prevent wrapping and preserve screen space */
+  .tab-button svg {
+    display: none !important;
+  }
+
+  .tab-button {
+    font-size: 0.75rem !important;
+    padding: 0.5rem 0.5rem !important;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .view-tabs {
+    gap: 0.25rem;
+    width: 100%;
+    padding-inline: 0.25rem;
+  }
+}
+
+/* Match details overlay mobile optimizations */
+@media (max-width: 480px) {
+  .mc-header {
+    padding: 2.25rem 1rem 1.5rem 1rem !important;
+  }
+
+  .btn-close-dialog {
+    top: 0.65rem !important;
+    right: 0.65rem !important;
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .mc-team-flag-container {
+    width: 50px !important;
+    height: 33px !important;
+  }
+
+  .mc-team-name {
+    font-size: 0.85rem !important;
+  }
+
+  .mc-score-num {
+    font-size: 1.75rem !important;
+  }
+
+  .mc-scores-box {
+    gap: 0.25rem !important;
+  }
+
+  .mc-tab-btn {
+    font-size: 0.75rem !important;
+    padding: 0.5rem 0.75rem !important;
+  }
+}
+
+/* Landscape / Device Rotation Adjustments */
+@media (max-height: 480px) and (orientation: landscape) {
+  /* Optimize dialog vertical sizing for landscape layouts on mobile */
+  .onboarding-content,
+  .match-center-wrapper {
+    max-height: 90vh !important;
+    padding: 1.5rem !important;
+  }
+  
+  .onboarding-header {
+    margin-block-end: 1rem !important;
+  }
+  
+  .onboarding-header svg {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .onboarding-title-text {
+    font-size: 1.25rem !important;
+  }
+  
+  /* Stack lineups layout side by side to save height if horizontal width allows */
+  .mc-squad-layout,
+  .style-cards-container,
+  .mc-stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 1.5rem !important;
+  }
+}
