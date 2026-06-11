@@ -134,7 +134,9 @@ const i18n = {
     "col-d": "D",
     "col-l": "L",
     "col-gd": "GD",
-    "skip-intro": "Skip Intro"
+    "skip-intro": "Skip Intro",
+    "audio-mute": "Mute",
+    "audio-unmute": "Unmute"
   },
   es: {
     "brand-tagline": "COPA MUNDIAL DE LA FIFA",
@@ -278,7 +280,9 @@ const i18n = {
     "col-d": "PE",
     "col-l": "PP",
     "col-gd": "DG",
-    "skip-intro": "Saltar Intro"
+    "skip-intro": "Saltar Intro",
+    "audio-mute": "Silenciar",
+    "audio-unmute": "Activar Audio"
   }
 };
 
@@ -2139,10 +2143,40 @@ const matchCenterContent = document.getElementById("match-center-content");
 const toastContainer = document.getElementById("toast-container");
 
 // --- Initialization ---
+const speakerMutedIcon = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" class="icon-audio">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+    <line x1="23" y1="9" x2="17" y2="15"></line>
+    <line x1="17" y1="9" x2="23" y2="15"></line>
+  </svg>
+`;
+
+const speakerUnmutedIcon = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" class="icon-audio">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+  </svg>
+`;
+
+function updateMuteButtonState(video, textSpan, iconSpan) {
+  if (video.muted) {
+    iconSpan.innerHTML = speakerMutedIcon;
+    textSpan.setAttribute("data-i18n", "audio-unmute");
+    textSpan.textContent = translate("audio-unmute");
+  } else {
+    iconSpan.innerHTML = speakerUnmutedIcon;
+    textSpan.setAttribute("data-i18n", "audio-mute");
+    textSpan.textContent = translate("audio-mute");
+  }
+}
+
 function startIntro() {
   const overlay = document.getElementById("video-intro-overlay");
   const video = document.getElementById("intro-video");
   const skipBtn = document.getElementById("skip-intro-btn");
+  const muteBtn = document.getElementById("mute-toggle-btn");
+  const muteText = document.getElementById("mute-btn-text");
+  const speakerIconWrapper = document.getElementById("speaker-icon-wrapper");
 
   if (!overlay || !video) {
     initializeApp();
@@ -2180,17 +2214,38 @@ function startIntro() {
     });
   }
 
+  if (muteBtn && muteText && speakerIconWrapper) {
+    muteBtn.addEventListener("click", () => {
+      video.muted = !video.muted;
+      updateMuteButtonState(video, muteText, speakerIconWrapper);
+    });
+  }
+
   video.addEventListener("ended", () => {
     finishIntro(false);
-  });
-
-  video.play().catch(err => {
-    console.warn("Video autoplay blocked or failed:", err);
   });
 
   video.addEventListener("error", () => {
     console.error("Error loading intro video.");
     finishIntro(true);
+  });
+
+  // Try playing unmuted first
+  video.muted = false;
+  video.play().then(() => {
+    if (muteBtn && muteText && speakerIconWrapper) {
+      updateMuteButtonState(video, muteText, speakerIconWrapper);
+    }
+  }).catch(err => {
+    console.warn("Unmuted autoplay blocked, falling back to muted autoplay:", err);
+    video.muted = true;
+    if (muteBtn && muteText && speakerIconWrapper) {
+      updateMuteButtonState(video, muteText, speakerIconWrapper);
+    }
+    video.play().catch(playErr => {
+      console.error("Video play failed completely:", playErr);
+      finishIntro(true);
+    });
   });
 }
 

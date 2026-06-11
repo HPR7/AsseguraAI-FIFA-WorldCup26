@@ -12,8 +12,20 @@
 <body>
   <!-- Video Intro Overlay -->
   <div id="video-intro-overlay" class="video-intro-overlay">
-    <video id="intro-video" class="intro-video" src="assets/Video WC26 AsseguraAI.mp4" playsinline muted autoplay></video>
-    <button type="button" id="skip-intro-btn" class="skip-intro-btn" data-i18n="skip-intro">Skip Intro</button>
+    <video id="intro-video" class="intro-video" src="assets/Video WC26 AsseguraAI.mp4" playsinline autoplay></video>
+    <div class="video-controls-overlay">
+      <button type="button" id="mute-toggle-btn" class="mute-toggle-btn">
+        <span id="speaker-icon-wrapper">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" class="icon-audio">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <line x1="23" y1="9" x2="17" y2="15"></line>
+            <line x1="17" y1="9" x2="23" y2="15"></line>
+          </svg>
+        </span>
+        <span id="mute-btn-text" data-i18n="audio-mute">Mute</span>
+      </button>
+      <button type="button" id="skip-intro-btn" class="skip-intro-btn" data-i18n="skip-intro">Skip Intro</button>
+    </div>
   </div>
 
   <!-- App Background Overlay -->
