@@ -2179,6 +2179,7 @@ function startIntro() {
   const muteBtn = document.getElementById("mute-toggle-btn");
   const muteText = document.getElementById("mute-btn-text");
   const speakerIconWrapper = document.getElementById("speaker-icon-wrapper");
+  const playOverlayBtn = document.getElementById("play-overlay-btn");
 
   if (!overlay || !video) {
     initializeApp();
@@ -2239,15 +2240,36 @@ function startIntro() {
       updateMuteButtonState(video, muteText, speakerIconWrapper);
     }
   }).catch(err => {
-    console.warn("Unmuted autoplay blocked, falling back to muted autoplay:", err);
-    video.muted = true;
-    if (muteBtn && muteText && speakerIconWrapper) {
-      updateMuteButtonState(video, muteText, speakerIconWrapper);
+    console.warn("Unmuted autoplay blocked by browser policy:", err);
+    // Show the play button overlay in the center!
+    if (playOverlayBtn) {
+      playOverlayBtn.style.display = "flex";
+      
+      // Update mute button to show it is ready but currently paused
+      if (muteBtn && muteText && speakerIconWrapper) {
+        updateMuteButtonState(video, muteText, speakerIconWrapper);
+      }
+
+      playOverlayBtn.addEventListener("click", () => {
+        video.muted = false;
+        video.play().then(() => {
+          playOverlayBtn.style.display = "none";
+          if (muteBtn && muteText && speakerIconWrapper) {
+            updateMuteButtonState(video, muteText, speakerIconWrapper);
+          }
+        }).catch(playErr => {
+          console.error("Failed to play unmuted after click:", playErr);
+          finishIntro(true);
+        });
+      });
+    } else {
+      // Fallback: autoplay muted if the element is missing
+      video.muted = true;
+      if (muteBtn && muteText && speakerIconWrapper) {
+        updateMuteButtonState(video, muteText, speakerIconWrapper);
+      }
+      video.play().catch(() => finishIntro(true));
     }
-    video.play().catch(playErr => {
-      console.error("Video play failed completely:", playErr);
-      finishIntro(true);
-    });
   });
 }
 
