@@ -137,7 +137,11 @@ const i18n = {
     "skip-intro": "Skip Intro",
     "audio-mute": "Mute",
     "audio-unmute": "Unmute",
-    "search-results": "Search Results"
+    "search-results": "Search Results",
+    "btn-update-lineups": "Update Lineups",
+    "toast-lineups-updated": "Starting lineups updated for this match!",
+    "win-probability": "Match Win Probability",
+    "draw": "Draw"
   },
   es: {
     "brand-tagline": "COPA MUNDIAL DE LA FIFA",
@@ -284,7 +288,11 @@ const i18n = {
     "skip-intro": "Saltar Intro",
     "audio-mute": "Silenciar",
     "audio-unmute": "Activar Audio",
-    "search-results": "Resultados de búsqueda"
+    "search-results": "Resultados de búsqueda",
+    "btn-update-lineups": "Actualizar Titulares",
+    "toast-lineups-updated": "¡Alineaciones titulares actualizadas para este partido!",
+    "win-probability": "Estimación de Victoria",
+    "draw": "Empate"
   }
 };
 
@@ -3034,6 +3042,82 @@ function renderBracket() {
   });
 }
 
+// --- Match Center Per-Match Lineup State ---
+const matchLineups = {};
+
+// --- Match Win Probability Estimator ---
+function calculateMatchPredictions(team1Code, team2Code) {
+  const t1 = teamsDb[team1Code];
+  const t2 = teamsDb[team2Code];
+
+  if (!t1 || !t2) {
+    return { team1: 33, draw: 34, team2: 33 };
+  }
+
+  const getStrength = (team) => {
+    const attrs = team.style.attrs;
+    return (attrs.attack * 0.4) + (attrs.defense * 0.3) + (attrs.control * 0.3) + (team.participations * 1.5);
+  };
+
+  const s1 = getStrength(t1);
+  const s2 = getStrength(t2);
+
+  // Deterministic head-to-head bias based on team codes
+  const charSum1 = team1Code.charCodeAt(0) + team1Code.charCodeAt(1) + team1Code.charCodeAt(2);
+  const charSum2 = team2Code.charCodeAt(0) + team2Code.charCodeAt(1) + team2Code.charCodeAt(2);
+  const h2hBias = (charSum1 + charSum2) % 7 - 3; // Value between -3 and +3
+
+  let p1 = Math.round(38 + (s1 - s2) * 1.2 + h2hBias);
+  let p2 = Math.round(38 + (s2 - s1) * 1.2 - h2hBias);
+
+  p1 = Math.max(12, Math.min(76, p1));
+  p2 = Math.max(12, Math.min(76, p2));
+  const draw = 100 - p1 - p2;
+
+  return { team1: p1, draw: draw, team2: p2 };
+}
+
+// --- Match Lineups Randomizer (Swaps 1-2 field players and GKs prior to kickoff) ---
+function randomizeMatchLineups(matchId, t1, t2) {
+  if (!matchLineups[matchId]) return;
+
+  const shuffleArray = (arr) => arr.sort(() => Math.random() - 0.5);
+
+  const generateLineup = (team) => {
+    if (!team) return { starters: [], subs: [] };
+    
+    // Combine all starters and subs
+    const allPlayers = [...team.starters, ...team.subs];
+    
+    // Split GK from field players
+    const gks = allPlayers.filter(p => p.pos === "GK");
+    const fieldPlayers = allPlayers.filter(p => p.pos !== "GK");
+    
+    // Shuffle lists
+    shuffleArray(gks);
+    shuffleArray(fieldPlayers);
+    
+    // Select 1 starting Goalkeeper
+    const startingGK = gks[0];
+    const subGKs = gks.slice(1);
+    
+    // Select 10 starting Field Players
+    const startingField = fieldPlayers.slice(0, 10);
+    const subField = fieldPlayers.slice(10);
+    
+    // Combine lists, sorting by player number for visual order
+    const starters = [startingGK, ...startingField].sort((a, b) => a.num - b.num);
+    const subs = [...subGKs, ...subField].sort((a, b) => a.num - b.num);
+    
+    return { starters, subs };
+  };
+
+  matchLineups[matchId] = {
+    team1: generateLineup(t1),
+    team2: generateLineup(t2)
+  };
+}
+
 // --- Match Center Dialog & Tabs ---
 function openMatchCenter(matchId) {
   const match = fixtures.find(m => m.id === matchId);
@@ -3041,6 +3125,20 @@ function openMatchCenter(matchId) {
 
   const t1 = teamsDb[match.team1];
   const t2 = teamsDb[match.team2];
+
+  // Pre-populate per-match lineups if not initialized
+  if (!matchLineups[matchId]) {
+    matchLineups[matchId] = {
+      team1: {
+        starters: JSON.parse(JSON.stringify(t1 ? t1.starters : [])),
+        subs: JSON.parse(JSON.stringify(t1 ? t1.subs : []))
+      },
+      team2: {
+        starters: JSON.parse(JSON.stringify(t2 ? t2.starters : [])),
+        subs: JSON.parse(JSON.stringify(t2 ? t2.subs : []))
+      }
+    };
+  }
 
   activeDetailTab = "lineups";
 
@@ -3136,6 +3234,32 @@ function renderMatchCenterContent(match, t1, t2) {
     return team.style.desc;
   };
 
+  let predictionHTML = "";
+  if (t1 && t2) {
+    const preds = calculateMatchPredictions(match.team1, match.team2);
+    predictionHTML = `
+      <div class="mc-prediction-section" role="region" aria-label="Win Probability Estimation">
+        <div class="mc-prediction-title">${translate("win-probability")}</div>
+        <div class="mc-prediction-bar">
+          <div class="pred-segment team1-pred" style="width: ${preds.team1}%;" title="${t1Name}: ${preds.team1}%">
+            <span>${preds.team1}%</span>
+          </div>
+          <div class="pred-segment draw-pred" style="width: ${preds.draw}%;" title="${translate("draw")}: ${preds.draw}%">
+            <span>${preds.draw}%</span>
+          </div>
+          <div class="pred-segment team2-pred" style="width: ${preds.team2}%;" title="${t2Name}: ${preds.team2}%">
+            <span>${preds.team2}%</span>
+          </div>
+        </div>
+        <div class="mc-prediction-labels">
+          <span class="label-t1">${t1Name}</span>
+          <span class="label-draw">${translate("draw")}</span>
+          <span class="label-t2">${t2Name}</span>
+        </div>
+      </div>
+    `;
+  }
+
   matchCenterContent.innerHTML = `
     <!-- Header -->
     <header class="mc-header">
@@ -3167,6 +3291,8 @@ function renderMatchCenterContent(match, t1, t2) {
         </div>
       </div>
 
+      ${predictionHTML}
+
       ${eventsHTML}
     </header>
 
@@ -3178,6 +3304,32 @@ function renderMatchCenterContent(match, t1, t2) {
 
     <!-- Content Panel 1: Lineups -->
     <section class="mc-tab-panel ${activeDetailTab === 'lineups' ? 'active' : ''}" id="mc-panel-lineups" aria-labelledby="mc-tab-btn-lineups">
+      ${match.status === "SCHEDULED" ? `
+        <div class="lineup-update-actions" style="margin-bottom: 1.25rem; text-align: center;">
+          <button type="button" class="btn-update-lineups" id="btn-update-match-lineups" data-match-id="${match.id}" style="
+            background: rgba(0, 92, 255, 0.1);
+            border: 1px solid var(--primary-blue);
+            color: var(--text-main);
+            padding: 0.5rem 1.25rem;
+            border-radius: 50px;
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all var(--transition-fast);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            box-shadow: 0 4px 15px rgba(0, 92, 255, 0.15);
+          ">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" class="refresh-icon">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+            <span data-i18n="btn-update-lineups">${translate("btn-update-lineups")}</span>
+          </button>
+        </div>
+      ` : ""}
       <div class="mc-squad-layout">
         <!-- Team 1 Squad -->
         <div>
@@ -3185,7 +3337,7 @@ function renderMatchCenterContent(match, t1, t2) {
             <img src="${t1Flag}" alt="" style="width:20px;height:13px;object-fit:cover;">
             ${translate("team-squad", {team: t1Name})}
           </h3>
-          ${renderSquadList(t1)}
+          ${renderSquadList(matchLineups[match.id]?.team1)}
         </div>
         
         <!-- Team 2 Squad -->
@@ -3194,7 +3346,7 @@ function renderMatchCenterContent(match, t1, t2) {
             <img src="${t2Flag}" alt="" style="width:20px;height:13px;object-fit:cover;">
             ${translate("team-squad", {team: t2Name})}
           </h3>
-          ${renderSquadList(t2)}
+          ${renderSquadList(matchLineups[match.id]?.team2)}
         </div>
       </div>
     </section>
@@ -3283,6 +3435,23 @@ function renderMatchCenterContent(match, t1, t2) {
     panelTactics.classList.add("active");
     panelLineups.classList.remove("active");
   });
+
+  // Attach Lineup Update Button listener
+  const btnUpdateLineups = document.getElementById("btn-update-match-lineups");
+  if (btnUpdateLineups) {
+    btnUpdateLineups.addEventListener("click", () => {
+      const refreshIcon = btnUpdateLineups.querySelector(".refresh-icon");
+      if (refreshIcon) {
+        refreshIcon.style.transform = "rotate(360deg)";
+        refreshIcon.style.transition = "transform 0.5s ease";
+      }
+      setTimeout(() => {
+        randomizeMatchLineups(match.id, t1, t2);
+        renderMatchCenterContent(match, t1, t2);
+        showToast(translate("toast-lineups-updated"), "success");
+      }, 300);
+    });
+  }
 }
 
 function renderSquadList(teamData) {
